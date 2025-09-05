@@ -1,193 +1,235 @@
---==================================================
--- SCRIPT ADM COMPLETO - YAGO QUE COMANDA
--- Coloque em ServerScriptService
---==================================================
+--// Painel ADM Local - Delta Android
+--// Autor: YAGO QUE COMANDA 👑
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local DataStoreService = game:GetService("DataStoreService")
+-- Criar GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PainelADM"
+ScreenGui.Parent = game.CoreGui
 
--- RemoteEvent
-local event = Instance.new("RemoteEvent")
-event.Name = "AdminEvent"
-event.Parent = ReplicatedStorage
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 250, 0, 430)
+Frame.Position = UDim2.new(0.7, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
 
--- DataStore de banidos
-local BanStore = DataStoreService:GetDataStore("BanidosStore")
+local UICorner = Instance.new("UICorner", Frame)
+UICorner.CornerRadius = UDim.new(0, 12)
 
--------------------------------------------------
--- Funções auxiliares
--------------------------------------------------
-local function anunciar(msg, cor)
-	StarterGui:SetCore("ChatMakeSystemMessage", {
-		Text = msg;
-		Color = cor or Color3.fromRGB(255, 200, 0);
-		Font = Enum.Font.GothamBold;
-		TextSize = 18;
-	})
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -10, 0, 40)
+Title.Position = UDim2.new(0, 5, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "YAGO QUE COMANDA"
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Center
+Title.Parent = Frame
+
+-- Funções Locais
+local player = game.Players.LocalPlayer
+
+-- Tag ADM
+local function addTagADM(char)
+    if char:FindFirstChild("Head") then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 100, 0, 30)
+        billboard.Adornee = char.Head
+        billboard.AlwaysOnTop = true
+        billboard.Parent = char.Head
+
+        local texto = Instance.new("TextLabel")
+        texto.Size = UDim2.new(1, 0, 1, 0)
+        texto.BackgroundTransparency = 1
+        texto.Text = "ADM"
+        texto.Font = Enum.Font.GothamBold
+        texto.TextColor3 = Color3.fromRGB(255, 50, 50)
+        texto.TextStrokeTransparency = 0
+        texto.TextSize = 18
+        texto.Parent = billboard
+    end
 end
 
-local function carregarBan(player)
-	local ok, result = pcall(function()
-		return BanStore:GetAsync(player.UserId)
-	end)
-	return ok and result == true
+player.CharacterAdded:Connect(addTagADM)
+if player.Character then addTagADM(player.Character) end
+
+-- Criar Botões
+local function criarBotao(nome, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 220, 0, 30)
+    btn.Position = UDim2.new(0, 15, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Text = nome
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.Parent = Frame
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 8)
+    btn.MouseButton1Click:Connect(callback)
 end
 
-local function salvarBan(userId)
-	pcall(function() BanStore:SetAsync(userId, true) end)
-end
-
-local function removerBan(userId)
-	pcall(function() BanStore:SetAsync(userId, false) end)
-end
-
--------------------------------------------------
--- Ações de ADM
--------------------------------------------------
-local function executarComando(acao, alvo, sender)
-	if not alvo then return end
-	if acao == "Kill" and alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
-		alvo.Character.Humanoid.Health = 0
-		anunciar("☠️ " .. alvo.Name .. " foi morto pelo ADM " .. sender.Name, Color3.fromRGB(255,100,100))
-
-	elseif acao == "Kick" then
-		anunciar("🚪 " .. alvo.Name .. " foi EXPULSO pelo ADM " .. sender.Name, Color3.fromRGB(255,200,0))
-		alvo:Kick("Você foi expulso pelo ADM.")
-
-	elseif acao == "Ban" then
-		salvarBan(alvo.UserId)
-		anunciar("⛔ " .. alvo.Name .. " foi BANIDO pelo ADM " .. sender.Name, Color3.fromRGB(255,0,0))
-		alvo:Kick("Você foi BANIDO permanentemente pelo ADM.")
-
-	elseif acao == "Fly" and alvo.Character then
-		local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
-		if hrp then
-			hrp.Anchored = not hrp.Anchored
-			anunciar("🕊️ " .. alvo.Name .. " teve Fly " .. (hrp.Anchored and "ATIVADO" or "DESATIVADO") .. " pelo ADM " .. sender.Name, Color3.fromRGB(150,200,255))
-		end
-
-	elseif acao == "Jail" and alvo.Character then
-		local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
-		if hrp then
-			hrp.CFrame = CFrame.new(0,5,0)
-			hrp.Anchored = true
-			anunciar("🔒 " .. alvo.Name .. " foi preso por 5s pelo ADM " .. sender.Name, Color3.fromRGB(200,150,255))
-			task.delay(5, function()
-				if hrp then hrp.Anchored = false end
-			end)
-		end
-	end
-end
-
--------------------------------------------------
--- Chat Commands
--------------------------------------------------
-Players.PlayerAdded:Connect(function(player)
-	-- Checa banimento ao entrar
-	if carregarBan(player) then
-		player:Kick("Você está BANIDO permanentemente do servidor.")
-		return
-	end
-
-	-- Colocar TAG ADM no Yago
-	if player.Name == "Yago" then
-		player.CharacterAdded:Connect(function(char)
-			if char:FindFirstChild("Head") then
-				local billboard = Instance.new("BillboardGui")
-				billboard.Size = UDim2.new(0, 100, 0, 30)
-				billboard.Adornee = char.Head
-				billboard.AlwaysOnTop = true
-				billboard.Parent = char.Head
-
-				local texto = Instance.new("TextLabel")
-				texto.Size = UDim2.new(1, 0, 1, 0)
-				texto.BackgroundTransparency = 1
-				texto.Text = "ADM"
-				texto.Font = Enum.Font.GothamBold
-				texto.TextColor3 = Color3.fromRGB(255, 50, 50)
-				texto.TextStrokeTransparency = 0
-				texto.TextSize = 18
-				texto.Parent = billboard
-			end
-		end)
-	end
-
-	-- Sistema de comandos pelo chat
-	player.Chatted:Connect(function(msg)
-		if player.Name ~= "Yago" then return end
-		local args = string.split(msg, " ")
-		local comando = string.lower(args[1])
-		local alvoNome = args[2]
-		local alvo = alvoNome and Players:FindFirstChild(alvoNome)
-
-		if comando == "!ban" and alvo then
-			executarComando("Ban", alvo, player)
-
-		elseif comando == "!unban" and alvoNome then
-			if alvo then
-				removerBan(alvo.UserId)
-				anunciar("✅ " .. alvo.Name .. " foi DESBANIDO pelo ADM " .. player.Name, Color3.fromRGB(0,255,0))
-			elseif tonumber(alvoNome) then
-				removerBan(tonumber(alvoNome))
-				anunciar("✅ UserId " .. alvoNome .. " foi DESBANIDO pelo ADM " .. player.Name, Color3.fromRGB(0,255,0))
-			end
-
-		elseif comando == "!kick" and alvo then
-			executarComando("Kick", alvo, player)
-
-		elseif comando == "!kill" and alvo then
-			executarComando("Kill", alvo, player)
-
-		elseif comando == "!fly" and alvo then
-			executarComando("Fly", alvo, player)
-
-		elseif comando == "!jail" and alvo then
-			executarComando("Jail", alvo, player)
-		end
-	end)
+-- Fly
+local flying = false
+criarBotao("🕊️ Fly", 50, function()
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        flying = not flying
+        if flying then
+            hrp.Anchored = true
+            hrp.Velocity = Vector3.new(0,0,0)
+        else
+            hrp.Anchored = false
+        end
+    end
 end)
 
--------------------------------------------------
--- Painel GUI (criado para Yago)
--------------------------------------------------
-event.OnServerEvent:Connect(function(sender, acao, alvoNome)
-	if sender.Name ~= "Yago" then return end
-	local alvo = Players:FindFirstChild(alvoNome)
-	executarComando(acao, alvo, sender)
+-- Speed
+local fast = false
+criarBotao("⚡ Speed", 90, function()
+    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+    if hum then
+        fast = not fast
+        hum.WalkSpeed = fast and 100 or 16
+    end
 end)
 
--- Painel GUI é enviado para o PlayerGui de Yago
-Players.PlayerAdded:Connect(function(player)
-	if player.Name == "Yago" then
-		local guiSource = script:FindFirstChild("PainelGui")
-		if not guiSource then
-			-- Cria GUI dinamicamente
-			local gui = Instance.new("ScreenGui")
-			gui.Name = "PainelADM"
-
-			local frame = Instance.new("Frame")
-			frame.Size = UDim2.new(0, 320, 0, 320)
-			frame.Position = UDim2.new(0.3, 0, 0.3, 0)
-			frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-			frame.Active = true
-			frame.Draggable = true
-			frame.Parent = gui
-
-			local titulo = Instance.new("TextLabel")
-			titulo.Size = UDim2.new(1, -40, 0, 40)
-			titulo.Position = UDim2.new(0, 10, 0, 0)
-			titulo.BackgroundTransparency = 1
-			titulo.Text = "YAGO QUE COMANDA"
-			titulo.Font = Enum.Font.GothamBold
-			titulo.TextColor3 = Color3.fromRGB(255, 255, 255)
-			titulo.TextSize = 18
-			titulo.TextXAlignment = Enum.TextXAlignment.Left
-			titulo.Parent = frame
-
-			gui.Parent = player:WaitForChild("PlayerGui")
-		end
-	end
+-- GodMode
+local god = false
+criarBotao("💎 GodMode", 130, function()
+    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+    if hum then
+        god = not god
+        if god then
+            hum.Name = "1xGod"
+            hum.MaxHealth = math.huge
+            hum.Health = math.huge
+        else
+            hum.Name = "Humanoid"
+            hum.MaxHealth = 100
+            hum.Health = 100
+        end
+    end
 end)
 
+-- Reset
+criarBotao("☠️ Reset", 170, function()
+    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+    if hum then hum.Health = 0 end
+end)
+
+-- ESP
+local espAtivo = false
+criarBotao("👀 ESP", 210, function()
+    espAtivo = not espAtivo
+    for _,plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+            if espAtivo then
+                local bill = Instance.new("BillboardGui")
+                bill.Name = "ESP"
+                bill.Size = UDim2.new(0,100,0,30)
+                bill.Adornee = plr.Character.Head
+                bill.AlwaysOnTop = true
+                bill.Parent = plr.Character.Head
+
+                local txt = Instance.new("TextLabel")
+                txt.Size = UDim2.new(1,0,1,0)
+                txt.BackgroundTransparency = 1
+                txt.Text = plr.Name
+                txt.TextColor3 = Color3.fromRGB(0,255,0)
+                txt.Font = Enum.Font.GothamBold
+                txt.TextSize = 14
+                txt.Parent = bill
+            else
+                if plr.Character and plr.Character:FindFirstChild("Head") and plr.Character.Head:FindFirstChild("ESP") then
+                    plr.Character.Head.ESP:Destroy()
+                end
+            end
+        end
+    end
+end)
+
+-- Tracers
+local tracersAtivo = false
+local runService = game:GetService("RunService")
+local camera = game.Workspace.CurrentCamera
+local tracers = {}
+
+criarBotao("📦 Tracers", 250, function()
+    tracersAtivo = not tracersAtivo
+    if not tracersAtivo then
+        for _,line in pairs(tracers) do line:Remove() end
+        tracers = {}
+    end
+end)
+
+runService.RenderStepped:Connect(function()
+    if tracersAtivo then
+        for _,line in pairs(tracers) do line:Remove() end
+        tracers = {}
+        for _,plr in pairs(game.Players:GetPlayers()) do
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = plr.Character.HumanoidRootPart
+                local vector, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local line = Drawing.new("Line")
+                    line.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                    line.To = Vector2.new(vector.X, vector.Y)
+                    line.Color = Color3.fromRGB(255,0,0)
+                    line.Thickness = 2
+                    line.Visible = true
+                    table.insert(tracers, line)
+                end
+            end
+        end
+    end
+end)
+
+-- Invisibilidade
+local invisivel = false
+criarBotao("👻 Invisível", 290, function()
+    local char = player.Character
+    if not char then return end
+    invisivel = not invisivel
+    for _,part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = invisivel and 1 or 0
+        end
+        if part:IsA("Accessory") and part:FindFirstChild("Handle") then
+            part.Handle.Transparency = invisivel and 1 or 0
+        end
+    end
+end)
+
+-- Teleporte
+criarBotao("🚀 Teleport", 330, function()
+    local teleportBox = Instance.new("TextBox")
+    teleportBox.Size = UDim2.new(0, 220, 0, 30)
+    teleportBox.Position = UDim2.new(0, 15, 0, 370)
+    teleportBox.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    teleportBox.Text = "Digite o nome do player"
+    teleportBox.TextColor3 = Color3.fromRGB(255,255,255)
+    teleportBox.ClearTextOnFocus = true
+    teleportBox.Font = Enum.Font.Gotham
+    teleportBox.TextSize = 14
+    teleportBox.Parent = Frame
+    local corner = Instance.new("UICorner", teleportBox)
+    corner.CornerRadius = UDim.new(0, 8)
+
+    teleportBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            local nome = teleportBox.Text
+            local target = game.Players:FindFirstChild(nome)
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+                end
+            end
+        end
+    end)
+end)
